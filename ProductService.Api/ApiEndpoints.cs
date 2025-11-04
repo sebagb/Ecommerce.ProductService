@@ -11,33 +11,25 @@ public static class ApiEndpoints
     private readonly static string GetById = $"{Base}/{{id}}";
     private readonly static string Update = $"{Base}/{{id}}";
 
-    public static void RegisterProductEndpoints
-        (this IEndpointRouteBuilder builder)
+    private static readonly string jsonBodyKey = "jsonBody";
+
+    public static void RegisterProductEndpoints(
+        this IEndpointRouteBuilder builder)
     {
-        builder.MapPost(Create, CreateProduct);
+        builder.MapPost(Create, CreateProduct).
+            AddEndpointFilter(BodyValidationFilter<CreateProductRequest>);
         builder.MapGet(GetById, GetProductById);
-        builder.MapPut(Update, UpdateProduct);
+        builder.MapPut(Update, UpdateProduct).
+            AddEndpointFilter(BodyValidationFilter<UpdateProductRequest>);
     }
 
     private static async Task<IResult> CreateProduct(
-        HttpRequest request, IProductRepository repo)
+        HttpContext context,
+        IProductRepository repo)
     {
-        CreateProductRequest? createProductRequest;
-        try
-        {
-            createProductRequest =
-                await request.ReadFromJsonAsync<CreateProductRequest>();
-        }
-        catch (Exception ex)
-        {
-            if (ex is JsonException || ex is InvalidOperationException)
-            {
-                return Results.BadRequest("Failed to deserialize request body");
-            }
-            throw;
-        }
+        var request = (CreateProductRequest)context.Items[jsonBodyKey]!;
 
-        var product = createProductRequest!.MapToProduct();
+        var product = request.MapToProduct();
 
         repo.Create(product);
 
@@ -45,38 +37,52 @@ public static class ApiEndpoints
         return Results.Ok(productResponse);
     }
 
-    private static IResult GetProductById(Guid id, IProductRepository repo)
+    private static IResult GetProductById(
+        Guid id,
+        IProductRepository repo)
     {
         var product = repo.GetById(id);
         var response = product.MapToResponse();
         return Results.Ok(response);
     }
 
-    private static async Task<IResult> UpdateProduct
-        (HttpRequest request,
+    private static async Task<IResult> UpdateProduct(
+        HttpContext context,
         IProductRepository repo)
     {
-        UpdateProductRequest? updateProductRequest;
-        try
-        {
-            updateProductRequest =
-                await request.ReadFromJsonAsync<UpdateProductRequest>();
-        }
-        catch (Exception ex)
-        {
-            if (ex is JsonException || ex is InvalidOperationException)
-            {
-                return Results.BadRequest("Failed to deserialize request body");
-            }
-            throw;
-        }
+        var productRequest = (UpdateProductRequest)context.Items[jsonBodyKey]!;
 
-        var id = new Guid((string)request.RouteValues["id"]!);
-        var product = updateProductRequest!.MapToProduct(id);
+        var routeId = context.Request.RouteValues["id"]!;
+        var productGuid = new Guid((string)routeId);
+
+        var product = productRequest.MapToProduct(productGuid);
 
         repo.Update(product);
 
         var response = product.MapToResponse();
         return Results.Ok(response);
+    }
+
+    private static async ValueTask<object?> BodyValidationFilter<T>(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        try
+        {
+            var request =
+                await context.HttpContext.Request.ReadFromJsonAsync<T>();
+
+            context.HttpContext.Items.Add(jsonBodyKey, request);
+        }
+        catch (Exception ex)
+        {
+            if (ex is JsonException || ex is InvalidOperationException)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+            throw;
+        }
+
+        return await next(context);
     }
 }
