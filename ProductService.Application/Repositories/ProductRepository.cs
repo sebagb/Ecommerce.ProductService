@@ -18,19 +18,19 @@ public class ProductRepository
         products.InsertOne(product);
     }
 
-    public Product GetById(Guid id)
+    public Product? GetById(Guid id)
     {
         var database = connection.Database;
         var products = database.
             GetCollection<Product>(connection.ProductCollection);
 
         var filter = Builders<Product>.Filter.Eq("_id", id);
-        var product = products.Find(filter).First();
+        var product = products.Find(filter);
 
-        return product;
+        return product.FirstOrDefault();
     }
 
-    public void Update(Product product)
+    public bool Update(Product product)
     {
         var database = connection.Database;
         var products = database
@@ -38,6 +38,7 @@ public class ProductRepository
 
         var filter = Builders<Product>.Filter.Eq("_id", product.Id);
 
-        products.ReplaceOne(filter, product);
+        var result = products.ReplaceOne(filter, product);
+        return result.MatchedCount > 0;
     }
 }

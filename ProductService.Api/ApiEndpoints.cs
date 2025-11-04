@@ -42,6 +42,11 @@ public static class ApiEndpoints
         IProductRepository repo)
     {
         var product = repo.GetById(id);
+        if (product == null)
+        {
+            return Results.NotFound();
+        }
+
         var response = product.MapToResponse();
         return Results.Ok(response);
     }
@@ -57,7 +62,12 @@ public static class ApiEndpoints
 
         var product = productRequest.MapToProduct(productGuid);
 
-        repo.Update(product);
+        var isUpdated = repo.Update(product);
+
+        if (!isUpdated)
+        {
+            return Results.NotFound();
+        }
 
         var response = product.MapToResponse();
         return Results.Ok(response);
