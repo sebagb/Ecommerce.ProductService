@@ -16,11 +16,11 @@ public static class ApiEndpoints
     public static void RegisterProductEndpoints(
         this IEndpointRouteBuilder builder)
     {
-        builder.MapPost(Create, CreateProduct).
-            AddEndpointFilter(BodyValidationFilter<CreateProductRequest>);
+        builder.MapPost(Create, CreateProduct)
+            .AddEndpointFilter(BodyValidationFilter<CreateProductRequest>);
         builder.MapGet(GetById, GetProductById);
-        builder.MapPut(Update, UpdateProduct).
-            AddEndpointFilter(BodyValidationFilter<UpdateProductRequest>);
+        builder.MapPut(Update, UpdateProduct)
+            .AddEndpointFilter(BodyValidationFilter<UpdateProductRequest>);
     }
 
     private static async Task<IResult> CreateProduct(
